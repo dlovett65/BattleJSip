@@ -1,6 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = {
   entry: './src/index',
@@ -9,7 +9,7 @@ module.exports = {
     filename: '[name].[chunkhash].js',
     path: path.resolve('dist')
   },
-  devtool: 'sourcemaps',
+  devtool: 'source-map',
   module: {
     rules: [
       {
@@ -26,7 +26,7 @@ module.exports = {
     ]
   },
   plugins: [
-    new CleanWebpackPlugin(['dist']),
+    new CleanWebpackPlugin(),
     new HtmlWebpackPlugin({
       template: 'index.html'
     })

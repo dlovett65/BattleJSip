@@ -4,13 +4,14 @@
   "description": "Battleship case study for scrum.org PSD training",
   "private": true,
   "scripts": {
-    "start": "webpack-dev-server",
-    "build": "webpack -p",
+    "start": "webpack serve",
+    "build": "webpack --mode production",
     "serve": "http-server dist/ -o -p 5000",
     "lint": "eslint --ext .jsx,.js src/",
     "lint:fix": "eslint --ext js,jsx src/ --fix",
     "test": "jest --watch",
-    "test-ci": "jest --ci --coverage"
+    "test-ci": "jest --ci --coverage",
+    "postinstall": "rm -rf node_modules/@babel/traverse/node_modules"
   },
   "authors": [
     "Frank van Wijk <fvanwijk@xebia.com>",
@@ -22,17 +23,17 @@
     "react-dom": "16.6.3"
   },
   "devDependencies": {
-    "@babel/cli": "7.2.0",
-    "@babel/core": "7.2.0",
-    "@babel/plugin-proposal-class-properties": "7.2.1",
-    "@babel/preset-env": "7.2.0",
-    "@babel/preset-react": "7.0.0",
+    "@babel/cli": "^7.24.0",
+    "@babel/core": "^7.24.0",
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-react": "^7.24.0",
     "add": "2.0.6",
     "babel-core": "^7.0.0-bridge.0",
     "babel-eslint": "10.0.1",
-    "babel-loader": "8.0.4",
-    "clean-webpack-plugin": "1.0.0",
-    "css-loader": "2.0.0",
+    "babel-loader": "^9.1.3",
+    "clean-webpack-plugin": "^4.0.0",
+    "css-loader": "^6.11.0",
     "eslint": "5.10.0",
     "eslint-config-prettier": "3.3.0",
     "eslint-config-react-app": "3.0.5",
@@ -41,18 +42,16 @@
     "eslint-plugin-jsx-a11y": "6.1.2",
     "eslint-plugin-prettier": "3.0.0",
     "eslint-plugin-react": "^7.7.0",
-    "extract-text-webpack-plugin": "4.0.0-beta.0",
-    "html-webpack-plugin": "^3.2.0",
+    "html-webpack-plugin": "^5.6.3",
     "http-server": "^0.11.1",
     "jest": "23.6.0",
     "jest-junit": "5.2.0",
     "prettier": "1.15.3",
     "regenerator-runtime": "0.13.1",
-    "style-loader": "0.23.1",
-    "uglifyjs-webpack-plugin": "2.0.1",
-    "webpack": "4.27.1",
-    "webpack-cli": "3.1.2",
-    "webpack-dev-server": "3.1.10",
+    "style-loader": "^3.3.4",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.2",
     "yarn": "1.22.13"
   },
   "jest": {
@@ -69,5 +68,11 @@
       "default",
       "jest-junit"
     ]
+  },
+  "resolutions": {
+    "@babel/types": "^7.29.7",
+    "@babel/traverse": "^7.29.7",
+    "@babel/generator": "^7.29.7",
+    "@babel/helper-module-imports": "^7.27.1"
   }
 }
