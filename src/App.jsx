@@ -4,7 +4,8 @@ import {
   initializeBoard,
   initializeEnemyBoard,
   isHit,
-  placeShip
+  placeShip,
+  receiveShot
 } from './game/board-service';
 import './App.css';
 
@@ -20,7 +21,11 @@ function getLetter(i) {
 
 const boardSize = 8;
 
-const Board = ({ selected }) => {
+// Board now accepts a `board` prop (to read board.shots) and `isEnemy` flag.
+// Buttons are disabled if they've already been shot and colored by who shot.
+const Board = ({ selected, board = {}, isEnemy = false }) => {
+  const shots = board.shots || {};
+
   return (
     <table>
       <thead>
@@ -37,13 +42,31 @@ const Board = ({ selected }) => {
             <td>
               <strong>{i}</strong>
             </td>
-            {getSequence(boardSize).map(j => (
-              <td key={j}>
-                <button onClick={() => selected(getLetter(j) + i)}>
-                  {getLetter(j) + i}
-                </button>
-              </td>
-            ))}
+            {getSequence(boardSize).map(j => {
+              const pos = getLetter(j) + i;
+              const shotBy = shots[pos]; // undefined | 'player' | 'enemy'
+
+              let style = {};
+              if (shotBy === 'player') {
+                style = { backgroundColor: 'lightblue' };
+              } else if (shotBy === 'enemy') {
+                style = { backgroundColor: 'lightcoral' };
+              }
+
+              const disabled = !!shotBy;
+
+              return (
+                <td key={j}>
+                  <button
+                    onClick={() => selected(pos)}
+                    disabled={disabled}
+                    style={style}
+                  >
+                    {pos}
+                  </button>
+                </td>
+              );
+            })}
           </tr>
         ))}
       </tbody>
@@ -114,21 +137,73 @@ export default class App extends Component {
   };
 
   shoot = position => {
-    alert(
-      `Shoot at ${position}: ${
-        isHit(this.state.enemyBoard, position) ? 'Hit!' : 'Miss!'
-      }`
-    );
-    const counterAttack = getRandomPosition(8, 8);
-    alert(
-      `Enemy shoots at ${counterAttack}: ${
-        isHit(this.state.myBoard, counterAttack) ? 'Hit!' : 'Miss!'
-      }`
-    );
+    const { enemyBoard, myBoard } = this.state;
+
+    // Player shoots enemy
+    const result = receiveShot(enemyBoard, position, 'player');
+
+    if (result.alreadyShot) {
+      alert(`${position} was already shot at. Choose another.`);
+      return;
+    }
+
+    let message = `You shoot at ${position}: ${result.hit ? 'Hit!' : 'Miss!'}`;
+    if (result.sunk) {
+      message += ` You sank the enemy ${result.shipName}!`;
+    }
+    alert(message);
+
+    // update UI state
+    this.setState({ enemyBoard });
+
+    if (result.gameOver) {
+      const playAgain = window.confirm('You win! Would you like to play again?');
+      if (playAgain) {
+        this.setState({
+          enemyBoard: initializeEnemyBoard(),
+          myBoard: initializeBoard(),
+          currentShipIndex: 0,
+          currentPosition: undefined
+        });
+      }
+      return;
+    }
+
+    // Enemy counterattack: pick an unshot position
+    let counterAttack;
+    let attempts = 0;
+    do {
+      counterAttack = getRandomPosition(boardSize, boardSize);
+      attempts++;
+      if (attempts > 1000) break;
+    } while (myBoard.shots && myBoard.shots[counterAttack]);
+
+    const enemyResult = receiveShot(myBoard, counterAttack, 'enemy');
+    let enemyMessage = `Enemy shoots at ${counterAttack}: ${
+      enemyResult.hit ? 'Hit!' : 'Miss!'
+    }`;
+    if (enemyResult.sunk) {
+      enemyMessage += ` Your ${enemyResult.shipName} was sunk!`;
+    }
+    alert(enemyMessage);
+
+    this.setState({ myBoard });
+
+    if (enemyResult.gameOver) {
+      const playAgain = window.confirm('Enemy wins! Would you like to play again?');
+      if (playAgain) {
+        this.setState({
+          enemyBoard: initializeEnemyBoard(),
+          myBoard: initializeBoard(),
+          currentShipIndex: 0,
+          currentPosition: undefined
+        });
+      }
+    }
   };
 
   render() {
-    const { currentPosition, currentShipIndex, myBoard } = this.state;
+    const { currentPosition, currentShipIndex, myBoard, enemyBoard } = this.state;
     const ship = myBoard.fleet[currentShipIndex];
     let text;
 
@@ -147,8 +222,10 @@ export default class App extends Component {
         <h1>{text}</h1>
         {!!currentPosition ? (
           <DirectionSelector selected={this.placeMyShip} />
+        ) : ship ? (
+          <Board selected={this.setCurrentPosition} board={myBoard} isEnemy={false} />
         ) : (
-          <Board selected={ship ? this.setCurrentPosition : this.shoot} />
+          <Board selected={this.shoot} board={enemyBoard} isEnemy={true} />
         )}
       </Fragment>
     );

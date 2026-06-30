@@ -89,8 +89,58 @@ export function placeShip(board, shipIndex, position, direction) {
   }
 }
 
+// Returns a random position within a columns x rows board.
+// columnCount and rowCount are the number of columns (letters) and rows (numbers).
 export function getRandomPosition(columnCount, rowCount) {
-  const column = String.fromCharCode(65 + Math.round(Math.random()) * rowCount);
-  const row = (Math.round(Math.random()) * columnCount).toString();
+  const column = String.fromCharCode(65 + Math.floor(Math.random() * columnCount));
+  const row = Math.floor(Math.random() * rowCount).toString();
   return column + row;
+}
+
+// Record a shot at `position` on the given `board`. This function:
+// - records who shot at position in board.shots (e.g. 'player' or 'enemy')
+// - records per-ship hits in ship.hits (does not remove ship.positions)
+// - returns an object { hit, sunk, shipName, gameOver, alreadyShot }
+export function receiveShot(board, position, shooter = 'player') {
+  // ensure shots container
+  board.shots = board.shots || {};
+
+  // already shot?
+  if (board.shots[position]) {
+    return { hit: false, alreadyShot: true, gameOver: false };
+  }
+
+  // record shot with who shot it
+  board.shots[position] = shooter;
+
+  // find ship occupying this position
+  const ship = board.fleet.find(s => s.positions.includes(position));
+  if (ship) {
+    ship.hits = ship.hits || [];
+    if (!ship.hits.includes(position)) {
+      ship.hits.push(position);
+    }
+
+    const sunk = ship.hits.length === ship.size;
+    // game over for this board when all ships are sunk
+    const gameOver = board.fleet.every(s => (s.hits || []).length === s.size);
+
+    return {
+      hit: true,
+      sunk,
+      shipName: ship.name,
+      gameOver
+    };
+  }
+
+  // miss
+  return {
+    hit: false,
+    gameOver: false
+  };
+}
+
+// helper: whether the board still has any remaining (not fully hit) ships
+export function hasRemainingShips(board) {
+  return board.fleet.some(s => (s.hits || []).length < s.size);
 }
