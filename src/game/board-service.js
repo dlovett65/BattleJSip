@@ -100,7 +100,7 @@ export function getRandomPosition(columnCount, rowCount) {
 // Record a shot at `position` on the given `board`. This function:
 // - records who shot at position in board.shots (e.g. 'player' or 'enemy')
 // - records per-ship hits in ship.hits (does not remove ship.positions)
-// - returns an object { hit, sunk, shipName, gameOver, alreadyShot }
+// - returns an object { hit, sunk, shipName, shipPositions, gameOver, alreadyShot }
 export function receiveShot(board, position, shooter = 'player') {
   // ensure shots container
   board.shots = board.shots || {};
@@ -125,10 +125,12 @@ export function receiveShot(board, position, shooter = 'player') {
     // game over for this board when all ships are sunk
     const gameOver = board.fleet.every(s => (s.hits || []).length === s.size);
 
+    // return the ship positions so UI can outline them when sunk
     return {
       hit: true,
       sunk,
       shipName: ship.name,
+      shipPositions: [...ship.positions],
       gameOver
     };
   }
@@ -143,4 +145,16 @@ export function receiveShot(board, position, shooter = 'player') {
 // helper: whether the board still has any remaining (not fully hit) ships
 export function hasRemainingShips(board) {
   return board.fleet.some(s => (s.hits || []).length < s.size);
+}
+
+// Mirror the fleet positions from sourceBoard to targetBoard.
+// This is used for test mode where enemy positions should match player's.
+export function mirrorFleet(targetBoard, sourceBoard) {
+  if (!targetBoard || !sourceBoard) return;
+  targetBoard.fleet.forEach((ship, i) => {
+    ship.positions = [...(sourceBoard.fleet[i].positions || [])];
+    ship.hits = [];
+  });
+  // clear any previous shot markers on the target
+  targetBoard.shots = {};
 }
