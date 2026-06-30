@@ -1,3 +1,12 @@
 #app {
     color: #6C1D5F; /* Xebia purple */
 }
+
+/* Basic board styles */
+.board-table { border-collapse: collapse; margin: 8px; }
+.board-table th, .board-table td { padding: 4px; text-align: center; }
+.board-table button { width: 48px; height: 32px; border: 1px solid #ccc; cursor: pointer; }
+.board-table button:disabled { opacity: 0.95; cursor: default; }
+
+/* sunk outline as CSS class */
+.sunk { box-shadow: 0 0 0 3px rgba(241, 196, 15, 0.95) inset !important; }

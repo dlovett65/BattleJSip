@@ -5,7 +5,8 @@ import {
   initializeEnemyBoard,
   isHit,
   placeShip,
-  receiveShot
+  receiveShot,
+  mirrorFleet
 } from './game/board-service';
 import './App.css';
 
@@ -53,48 +54,69 @@ const Board = ({ selected, board = {}, isEnemy = false, allowSelect = true }) =>
 
               // Determine visual state
               let style = {};
+              let className = '';
               let disabled = false;
 
               if (isEnemy) {
-                // For enemy board: reveal only where player has shot.
-                // If player shot and it is a hit -> hit color; if player shot and miss -> miss color.
-                if (shotBy === 'player') {
-                  const ship = getShipAtPosition(board, pos);
-                  if (ship && (ship.hits || []).includes(pos)) {
-                    // player hit this enemy ship position
-                    style = { backgroundColor: '#e74c3c' }; // red for hit
+                // Enemy board visual rules:
+                // - enemy boats: green to start (#2ecc71), blue when hit (#3498db)
+                // - player's misses on enemy: dark grey (#4b4b4b)
+                // - sunk ships: outlined via CSS class 'sunk'
+                const ship = getShipAtPosition(board, pos);
+                if (ship) {
+                  // if hit
+                  if ((ship.hits || []).includes(pos)) {
+                    style = { backgroundColor: '#3498db', color: '#fff' }; // blue for enemy hit
                   } else {
-                    // player shot but missed
-                    style = { backgroundColor: '#bdc3c7' }; // gray for miss
+                    style = { backgroundColor: '#2ecc71', color: '#000' }; // green for enemy ship
                   }
+
+                  // if the ship is sunk, add class
+                  if ((ship.hits || []).length === ship.size) {
+                    className = 'sunk';
+                  }
+
+                  // disable clicking on enemy ship cells after they have been shot by player
+                  disabled = !!shots[pos];
+                } else if (shotBy === 'player') {
+                  // player shot here and missed
+                  style = { backgroundColor: '#4b4b4b', color: '#fff' }; // dark grey for enemy miss
                   disabled = true;
                 } else {
-                  // not shot by player yet; enabled only if allowed
+                  // unshot empty cell
                   disabled = !allowSelect;
                 }
               } else {
-                // Player's own board: show ships colored by ship.color
+                // Player's own board visual rules:
+                // - player boats: red to start (#e74c3c), pink when hit (#ffc0cb)
+                // - player's misses by enemy: black (#000)
+                // - sunk ships: outlined via CSS class 'sunk'
                 const ship = getShipAtPosition(board, pos);
                 if (ship) {
-                  // default ship color
-                  style = { backgroundColor: ship.color };
-                  // if this position has been hit, override to indicate damage
                   if ((ship.hits || []).includes(pos)) {
-                    style = { backgroundColor: '#2c3e50' }; // dark to show hit
+                    style = { backgroundColor: '#ffc0cb', color: '#000' }; // pink for player hit
+                  } else {
+                    style = { backgroundColor: '#e74c3c', color: '#fff' }; // red for player ship
+                  }
+
+                  // sunk outline
+                  if ((ship.hits || []).length === ship.size) {
+                    className = 'sunk';
                   }
                 } else if (shotBy === 'enemy') {
-                  // enemy shot at empty position on player's board -> miss
-                  style = { backgroundColor: '#f39c12' }; // orange-ish for enemy miss
+                  // enemy shot at empty position on player's board -> miss (black)
+                  style = { backgroundColor: '#000000', color: '#fff' };
                 }
 
                 // Player board selection used for placing ships only,
-                // so disable clicking unless allowSelect is true and it's not already placed.
+                // so disable clicking unless allowSelect is true.
                 disabled = !allowSelect;
               }
 
               return (
                 <td key={j}>
                   <button
+                    className={className}
                     onClick={() => selected && selected(pos)}
                     disabled={disabled}
                     style={style}
@@ -149,7 +171,8 @@ export default class App extends Component {
       currentPosition: undefined,
       currentShipIndex: 0,
       enemyBoard: initializeEnemyBoard(),
-      myBoard: initializeBoard()
+      myBoard: initializeBoard(),
+      testMode: false
     };
   }
 
@@ -159,17 +182,45 @@ export default class App extends Component {
     });
   };
 
+  applyTestModeToEnemy = () => {
+    const { myBoard, enemyBoard } = this.state;
+    mirrorFleet(enemyBoard, myBoard);
+    this.setState({ enemyBoard });
+  };
+
+  toggleTestMode = () => {
+    this.setState(
+      prev => ({ testMode: !prev.testMode }),
+      () => {
+        if (this.state.testMode) {
+          this.applyTestModeToEnemy();
+        } else {
+          this.setState({ enemyBoard: initializeEnemyBoard() });
+        }
+      }
+    );
+  };
+
   placeMyShip = direction => {
-    const { myBoard, currentPosition, currentShipIndex } = this.state;
+    const { myBoard, currentPosition, currentShipIndex, testMode } = this.state;
 
     if (currentPosition) {
       placeShip(myBoard, currentShipIndex, currentPosition, direction);
 
-      this.setState({
-        currentPosition: undefined,
-        currentShipIndex: currentShipIndex + 1,
-        myBoard
-      });
+      const nextIndex = currentShipIndex + 1;
+      this.setState(
+        {
+          currentPosition: undefined,
+          currentShipIndex: nextIndex,
+          myBoard
+        },
+        () => {
+          // If testMode is on and we have placed all ships, mirror them to enemy
+          if (testMode && nextIndex >= myBoard.fleet.length) {
+            this.applyTestModeToEnemy();
+          }
+        }
+      );
     }
   };
 
@@ -187,8 +238,11 @@ export default class App extends Component {
     let message = `You shoot at ${position}: ${result.hit ? 'Hit!' : 'Miss!'}`;
     if (result.sunk) {
       message += ` You sank the enemy ${result.shipName}!`;
+      console.log(`Enemy ${result.shipName} sunk.`);
+      alert(`Enemy ${result.shipName} has been sunk!`);
+    } else {
+      alert(message);
     }
-    alert(message);
 
     // update UI state
     this.setState({ enemyBoard });
@@ -200,7 +254,8 @@ export default class App extends Component {
           enemyBoard: initializeEnemyBoard(),
           myBoard: initializeBoard(),
           currentShipIndex: 0,
-          currentPosition: undefined
+          currentPosition: undefined,
+          testMode: false
         });
       }
       return;
@@ -221,8 +276,11 @@ export default class App extends Component {
     }`;
     if (enemyResult.sunk) {
       enemyMessage += ` Your ${enemyResult.shipName} was sunk!`;
+      console.log(`Player ship ${enemyResult.shipName} sunk.`);
+      alert(`Your ${enemyResult.shipName} has been sunk!`);
+    } else {
+      alert(enemyMessage);
     }
-    alert(enemyMessage);
 
     this.setState({ myBoard });
 
@@ -233,14 +291,15 @@ export default class App extends Component {
           enemyBoard: initializeEnemyBoard(),
           myBoard: initializeBoard(),
           currentShipIndex: 0,
-          currentPosition: undefined
+          currentPosition: undefined,
+          testMode: false
         });
       }
     }
   };
 
   render() {
-    const { currentPosition, currentShipIndex, myBoard, enemyBoard } = this.state;
+    const { currentPosition, currentShipIndex, myBoard, enemyBoard, testMode } = this.state;
     const ship = myBoard.fleet[currentShipIndex];
     let text;
 
@@ -259,6 +318,14 @@ export default class App extends Component {
     return (
       <Fragment>
         <h1>{text}</h1>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ marginRight: 12 }}>
+            <input type="checkbox" checked={testMode} onChange={this.toggleTestMode} />
+            {' '}Test mode (mirror your ship placements to enemy)
+          </label>
+        </div>
+
         {!!currentPosition ? (
           <DirectionSelector selected={this.placeMyShip} />
         ) : null}
