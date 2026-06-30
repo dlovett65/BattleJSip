@@ -21,13 +21,18 @@ function getLetter(i) {
 
 const boardSize = 8;
 
-// Board now accepts a `board` prop (to read board.shots) and `isEnemy` flag.
-// Buttons are disabled if they've already been shot and colored by who shot.
-const Board = ({ selected, board = {}, isEnemy = false }) => {
+// Helper: find ship at a position on a board
+function getShipAtPosition(board, pos) {
+  return board.fleet.find(s => s.positions.includes(pos));
+}
+
+// Board now accepts a `board` prop (to read board.shots and ship positions) and `isEnemy` flag.
+// Buttons are disabled if they've already been shot and colored by state.
+const Board = ({ selected, board = {}, isEnemy = false, allowSelect = true }) => {
   const shots = board.shots || {};
 
   return (
-    <table>
+    <table className="board-table">
       <thead>
         <tr>
           <th />
@@ -46,19 +51,51 @@ const Board = ({ selected, board = {}, isEnemy = false }) => {
               const pos = getLetter(j) + i;
               const shotBy = shots[pos]; // undefined | 'player' | 'enemy'
 
+              // Determine visual state
               let style = {};
-              if (shotBy === 'player') {
-                style = { backgroundColor: 'lightblue' };
-              } else if (shotBy === 'enemy') {
-                style = { backgroundColor: 'lightcoral' };
-              }
+              let disabled = false;
 
-              const disabled = !!shotBy;
+              if (isEnemy) {
+                // For enemy board: reveal only where player has shot.
+                // If player shot and it is a hit -> hit color; if player shot and miss -> miss color.
+                if (shotBy === 'player') {
+                  const ship = getShipAtPosition(board, pos);
+                  if (ship && (ship.hits || []).includes(pos)) {
+                    // player hit this enemy ship position
+                    style = { backgroundColor: '#e74c3c' }; // red for hit
+                  } else {
+                    // player shot but missed
+                    style = { backgroundColor: '#bdc3c7' }; // gray for miss
+                  }
+                  disabled = true;
+                } else {
+                  // not shot by player yet; enabled only if allowed
+                  disabled = !allowSelect;
+                }
+              } else {
+                // Player's own board: show ships colored by ship.color
+                const ship = getShipAtPosition(board, pos);
+                if (ship) {
+                  // default ship color
+                  style = { backgroundColor: ship.color };
+                  // if this position has been hit, override to indicate damage
+                  if ((ship.hits || []).includes(pos)) {
+                    style = { backgroundColor: '#2c3e50' }; // dark to show hit
+                  }
+                } else if (shotBy === 'enemy') {
+                  // enemy shot at empty position on player's board -> miss
+                  style = { backgroundColor: '#f39c12' }; // orange-ish for enemy miss
+                }
+
+                // Player board selection used for placing ships only,
+                // so disable clicking unless allowSelect is true and it's not already placed.
+                disabled = !allowSelect;
+              }
 
               return (
                 <td key={j}>
                   <button
-                    onClick={() => selected(pos)}
+                    onClick={() => selected && selected(pos)}
                     disabled={disabled}
                     style={style}
                   >
@@ -217,16 +254,36 @@ export default class App extends Component {
       text = `Shoot!`;
     }
 
+    const placing = !!ship;
+
     return (
       <Fragment>
         <h1>{text}</h1>
         {!!currentPosition ? (
           <DirectionSelector selected={this.placeMyShip} />
-        ) : ship ? (
-          <Board selected={this.setCurrentPosition} board={myBoard} isEnemy={false} />
-        ) : (
-          <Board selected={this.shoot} board={enemyBoard} isEnemy={true} />
-        )}
+        ) : null}
+
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+          <div>
+            <h2>Your Board</h2>
+            <Board
+              selected={placing ? this.setCurrentPosition : null}
+              board={myBoard}
+              isEnemy={false}
+              allowSelect={placing}
+            />
+          </div>
+
+          <div>
+            <h2>Enemy Board</h2>
+            <Board
+              selected={placing ? null : this.shoot}
+              board={enemyBoard}
+              isEnemy={true}
+              allowSelect={!placing}
+            />
+          </div>
+        </div>
       </Fragment>
     );
   }
